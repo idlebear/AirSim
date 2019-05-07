@@ -47,18 +47,31 @@ public class AirSim : ModuleRules
         switch (mode)
         {
             case CompileMode.HeaderOnlyNoRpc:
+#if UE_4_19_OR_LATER
+                PublicDefinitions.Add("AIRLIB_HEADER_ONLY=1");
+                PublicDefinitions.Add("AIRLIB_NO_RPC=1");
+#else
                 Definitions.Add("AIRLIB_HEADER_ONLY=1");
                 Definitions.Add("AIRLIB_NO_RPC=1");
+#endif
                 AddLibDependency("AirLib", Path.Combine(AirLibPath, "lib"), "AirLib", Target, false);
                 break;
             case CompileMode.HeaderOnlyWithRpc:
+#if UE_4_19_OR_LATER
+                PublicDefinitions.Add("AIRLIB_HEADER_ONLY=1");
+#else
                 Definitions.Add("AIRLIB_HEADER_ONLY=1");
+#endif
                 AddLibDependency("AirLib", Path.Combine(AirLibPath, "lib"), "AirLib", Target, false);
                 LoadAirSimDependency(Target, "rpclib", "rpc");
                 break;
             case CompileMode.CppCompileNoRpc:
                 LoadAirSimDependency(Target, "MavLinkCom", "MavLinkCom");
+#if UE_4_19_OR_LATER
+                PublicDefinitions.Add("AIRLIB_NO_RPC=1");
+#else
                 Definitions.Add("AIRLIB_NO_RPC=1");
+#endif
                 break;
             case CompileMode.CppCompileWithRpc:
                 LoadAirSimDependency(Target, "rpclib", "rpc");
@@ -73,18 +86,25 @@ public class AirSim : ModuleRules
     {
         //bEnforceIWYU = true; //to support 4.16
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+
         bEnableExceptions = true;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "ImageWrapper", "RenderCore", "RHI", "PhysXVehicles", "Landscape" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "ImageWrapper", "RenderCore", "RHI", "PhysXVehicles", "PhysXVehicleLib", "PhysX", "APEX", "Landscape" });
         PrivateDependencyModuleNames.AddRange(new string[] { "UMG", "Slate", "SlateCore" });
 
         //suppress VC++ proprietary warnings
+#if UE_4_19_OR_LATER
+        PublicDefinitions.Add("_SCL_SECURE_NO_WARNINGS=1");
+        PublicDefinitions.Add("_CRT_SECURE_NO_WARNINGS=1");
+        PublicDefinitions.Add("HMD_MODULE_INCLUDED=0");
+#else
         Definitions.Add("_SCL_SECURE_NO_WARNINGS=1");
-        Definitions.Add("CRT_SECURE_NO_WARNINGS=1");
+        Definitions.Add("_CRT_SECURE_NO_WARNINGS=1");
         Definitions.Add("HMD_MODULE_INCLUDED=0");
+#endif
 
-        PrivateIncludePaths.Add(Path.Combine(AirLibPath, "include"));
-        PrivateIncludePaths.Add(Path.Combine(AirLibPath, "deps", "eigen3"));
+        PublicIncludePaths.Add(Path.Combine(AirLibPath, "include"));
+        PublicIncludePaths.Add(Path.Combine(AirLibPath, "deps", "eigen3"));
         AddOSLibDependencies(Target);
 
         SetupCompileMode(CompileMode.CppCompileWithRpc, Target);
@@ -101,6 +121,13 @@ public class AirSim : ModuleRules
             PublicAdditionalLibraries.Add("dinput8.lib");
             PublicAdditionalLibraries.Add("dxguid.lib");
         }
+
+		if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			// needed when packaging
+			PublicAdditionalLibraries.Add("stdc++");
+			PublicAdditionalLibraries.Add("supc++");
+		}
     }
 
     static void CopyFileIfNewer(string srcFilePath, string destFolder)
@@ -140,10 +167,13 @@ public class AirSim : ModuleRules
         if (isLibrarySupported && IsAddLibInclude)
         {
             // Include path
-            PrivateIncludePaths.Add(Path.Combine(AirLibPath, "deps", LibName, "include"));
+            PublicIncludePaths.Add(Path.Combine(AirLibPath, "deps", LibName, "include"));
         }
-
+#if UE_4_19_OR_LATER
+        PublicDefinitions.Add(string.Format("WITH_" + LibName.ToUpper() + "_BINDING={0}", isLibrarySupported ? 1 : 0));
+#else
         Definitions.Add(string.Format("WITH_" + LibName.ToUpper() + "_BINDING={0}", isLibrarySupported ? 1 : 0));
+#endif
 
         return isLibrarySupported;
     }
